@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        // Variables d'environnement pour DockerHub
+        DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'  // Remplace par le nom de tes credentials DockerHub
+        IMAGE_NAME = 'ghofranebenothmen/flask-api'        // Nom de l'image Docker
+        IMAGE_TAG = 'latest'                             // Tag de l'image Docker
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Cloner le dépôt Git contenant ton code
+                git 'https://github.com/tonrepo/tonprojet.git' // Remplace par l'URL de ton dépôt Git
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Construire l'image Docker à partir du Dockerfile
+                    docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                }
+            }
+        }
+
+        stage('Push to DockerHub') {
+            steps {
+                script {
+                    // Se connecter à DockerHub et pousser l'image construite
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDENTIALS) {
+                        docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    // Télécharger l'image Docker depuis DockerHub
+                    sh 'docker pull ghofranebenothmen/flask-api:latest'
+
+                    // Lancer le conteneur avec l'image téléchargée
+                    sh 'docker run -d -p 4000:5000 ghofranebenothmen/flask-api:latest'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Nettoyer les ressources après le pipeline
+            sh 'docker system prune -af'
+        }
+    }
+}
